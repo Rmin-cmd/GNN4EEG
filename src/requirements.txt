@@ -44,7 +44,7 @@ psutil==5.9.5
 pyasn1==0.4.8
 pyasn1-modules==0.2.7
 pyDeprecate==0.3.2
-pyg-lib -f https://data.pyg.org/whl/torch-1.13.0+cu116.html
+pyg-lib==0.1.0 -f https://data.pyg.org/whl/torch-1.13.0+cu116.html
 pyparsing==3.0.9
 python-dateutil==2.8.2
 pytorch-lightning==1.7.1
