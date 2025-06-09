@@ -9,7 +9,7 @@ if __name__ =='__main__':
     loader=data_FACED('cross_subject',2,data_path)
     print(loader.data.shape)
 
-    # based hyper-parameters defination 
+    # based hyper-parameters defination #
     num_nodes=30
     num_hiddens=80
     num_layers=2
