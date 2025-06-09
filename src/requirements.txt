@@ -56,7 +56,7 @@ sklearn==0.0
 tensorboard==2.10.0
 tensorboard-data-server==0.6.0
 threadpoolctl==3.1.0
-torch==1.13.1
+## torch==1.13.1
 ## torch-cluster==1.6.1+pt113cu116
 torch-cluster
 torch-geometric==2.3.1
@@ -66,8 +66,11 @@ torch-scatter
 torch-sparse
 ## torch-spline-conv==1.2.2+pt113cu116
 torch-spline-conv
-torchaudio==0.12.1
-torchmetrics==0.9.3
-torchvision==0.13.1
+torch==1.13.1+cu116
+##torchaudio==0.12.1
+torchaudio==0.13.1+cu116 --index-url https://download.pytorch.org/whl/cu116
+## torchmetrics==0.9.3
+torchmetrics==1.5.2
+torchvision==0.13.1+cu116
 traitlets==5.9.0
 yarl==1.7.2
