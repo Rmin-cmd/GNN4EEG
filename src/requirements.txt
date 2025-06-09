@@ -66,7 +66,7 @@ torch-scatter
 torch-sparse
 ## torch-spline-conv==1.2.2+pt113cu116
 torch-spline-conv
-torch==1.13.1+cu116
+torch==1.13.0+cu116
 ##torchaudio==0.12.1
 torchaudio==0.13.1+cu116 --index-url https://download.pytorch.org/whl/cu116
 ## torchmetrics==0.9.3
