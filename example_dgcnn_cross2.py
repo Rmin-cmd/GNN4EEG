@@ -6,7 +6,7 @@ from ge.models import *
 if __name__ =='__main__':
     # load the FACED dataset
     data_path='./FACED_dataset_2_labels.mat'
-    loader=data_FACED('cross_subject',2,data_path)
+    loader=data_FACED('cross_subject',9,data_path)
     print(loader.data.shape)
 
     # based hyper-parameters defination #
@@ -25,5 +25,5 @@ if __name__ =='__main__':
     K=10
     best_dict,out_acc_list=evaluation(model_DGCNN,loader,'cv',grid={"lr":0.001,"hiddens":80,'epoch':list(range(0,100)),'l1_reg':0.005,'l2_reg':0.005,
                                                                 'batch_size':256,'dropout':0.5},
-                    categories=2,K=K,device=torch.device('cuda:0'),optimizer='Adam',train_log=True)
+                    categories=9,K=K,device=torch.device('cuda:0'),optimizer='Adam',train_log=True)
     print(best_dict,out_acc_list)
