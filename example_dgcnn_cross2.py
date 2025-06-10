@@ -5,7 +5,7 @@ from ge.models import *
 
 if __name__ =='__main__':
     # load the FACED dataset
-    data_path='./FACED_dataset_2_labels.mat'
+    data_path='./FACED_dataset_9_labels.mat'
     loader=data_FACED('cross_subject',9,data_path)
     print(loader.data.shape)
 
