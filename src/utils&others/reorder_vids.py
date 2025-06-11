@@ -21,7 +21,10 @@ def video_order_load(dataset,n_vids):
 
 def reorder_vids(data, vid_play_order): 
     # data: (n_subs, n_points, n_feas)
-    n_vids = int(data.shape[1] / 30)
+    if data.shape[1] == 308:
+        n_vids = int(data.shape[1] / 11)
+    else:
+        n_vids = int(data.shape[1] / 30)
     n_subs = data.shape[0]
 
     if n_vids == 24:

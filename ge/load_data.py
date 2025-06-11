@@ -9,7 +9,11 @@ def load_srt_de(data, channel_norm, isFilt, filtLen, label_type):
         n_vids = 24
     elif label_type == 'cls9':
         n_vids = 28
-    n_samples = np.ones(n_vids).astype(np.int32) * 30  # (30,30,...,30)
+
+    if data.shape[1] == 308:
+        n_samples = np.ones(n_vids).astype(np.int32) * 11  # (30,30,...,30)
+    else:
+        n_samples = np.ones(n_vids).astype(np.int32) * 30  # (30,30,...,30)
 
     n_samples_cum = np.concatenate(
         (np.array([0]), np.cumsum(n_samples)))  # (0,30,60,...,810,840)
