@@ -23,7 +23,13 @@ if __name__ =='__main__':
     print(subject_id_list.shape)
     
     K=10
-    best_dict,out_acc_list=evaluation(model_DGCNN,loader,'cv',grid={"lr":0.001,"hiddens":80,'epoch':list(range(0,100)),'l1_reg':0.005,'l2_reg':0.005,
-                                                                'batch_size':256,'dropout':0.5},
+    # best_dict,out_acc_list=evaluation(model_DGCNN,loader,'cv',grid={"lr":0.001,"hiddens":80,'epoch':list(range(0,100)),'l1_reg':0.005,'l2_reg':0.005,
+    #                                                             'batch_size':256,'dropout':0.5},
+    #                 categories=9,K=K,device=torch.device('cuda:0'),optimizer='Adam',train_log=True)
+
+    best_dict,out_acc_list=evaluation(model_DGCNN,loader,'cv',grid={"lr":{0.001, 1e-4},"hiddens":80,'epoch':list(range(0,100)),'l1_reg': {
+        1e-5, 1e-6},'l2_reg': {1e-5, 1e-6},
+                                                                'batch_size':256,'dropout': {0.0, 0.2, 0.5}},
                     categories=9,K=K,device=torch.device('cuda:0'),optimizer='Adam',train_log=True)
+
     print(best_dict,out_acc_list)
