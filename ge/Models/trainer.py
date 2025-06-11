@@ -54,6 +54,9 @@ class Trainer(object):
         total_samples = 0  # total samples in epoch
         epoch_metrics = {}
 
+        all_predictions = []
+        all_true_labels = []
+
         num_correct_predict = 0
         num_correct_domain_predict = 0
         if self.num_epoch != 1:
@@ -63,9 +66,17 @@ class Trainer(object):
         beta = 2/(1+math.exp(-10*p))-1
         loss_model2 = nn.CrossEntropyLoss()
 
-        total_class_predictions = []
+        # This variable is used to determine num_batches later.
+        # We need to handle the case where data_loader might be empty.
+        num_batches_processed = 0
+        # total_class_predictions is used when ret_predict is True.
+        # Initialize it here if it's going to be extended.
+        if ret_predict: # Ensure it's initialized if ret_predict is true
+            total_class_predictions = []
+
 
         for i, batch in enumerate(data_loader):
+            num_batches_processed = i + 1
             # print("data batch ",i)
             if self.model_name == 'Het':
                 X_time, X_freq, A, Y = batch
@@ -103,11 +114,16 @@ class Trainer(object):
             class_predict = predictions.argmax(axis=-1)
             class_predict = class_predict.cpu().detach().numpy()
             if ret_predict == True:
-                total_class_predictions += [
-                    item for item in class_predict]
+                # total_class_predictions is already a list of items, not list of lists
+                total_class_predictions.extend(class_predict.tolist())
 
-            Y = Y.cpu().detach().numpy()
-            num_correct_predict += np.sum(class_predict == Y)
+
+            Y_np = Y.cpu().detach().numpy() # Ensure Y is a numpy array for extending
+            num_correct_predict += np.sum(class_predict == Y_np)
+
+            all_predictions.extend(class_predict.tolist())
+            all_true_labels.extend(Y_np.tolist())
+
             L1_loss = self.l1_reg * l1_reg_loss(
                 self.model, only=None if self.model_name == 'Het' else ['edge_weight'])  # if self.model_name == 'RGNN' else None) # Note: the L1_reg_loss of RGNN only contains matrix edge weight.
             L2_loss = self.l2_reg * l2_reg_loss(
@@ -161,15 +177,34 @@ class Trainer(object):
                 epoch_loss['L2_loss'] += L2_loss  # .item()
 
         epoch_metrics['epoch'] = epoch_num
-        epoch_metrics['loss'] = (
-            epoch_loss['L2_loss']+epoch_loss['L1_loss']+epoch_loss['Entropy_loss']).item() / (total_samples/self.batch_size)
+        # Use num_batches_processed for loss calculation if batch_size is part of its denominator logic
+        # Assuming loss is total loss / number of batches effectively
+        current_epoch_loss_sum = epoch_loss['L2_loss']+epoch_loss['L1_loss']+epoch_loss['Entropy_loss']
+        if isinstance(current_epoch_loss_sum, torch.Tensor):
+            current_epoch_loss_sum = current_epoch_loss_sum.item()
+
+        if num_batches_processed > 0:
+             epoch_metrics['loss'] = current_epoch_loss_sum / num_batches_processed
+        else:
+            epoch_metrics['loss'] = 0.0
+
         epoch_metrics['num_correct'] = num_correct_predict
-        epoch_metrics['acc'] = num_correct_predict/total_samples
+        epoch_metrics['acc'] = num_correct_predict/total_samples if total_samples > 0 else 0.0
+
+        if total_samples > 0: # Calculate metrics only if there were samples
+            epoch_metrics['f1'] = f1_score(all_true_labels, all_predictions, average='weighted', zero_division=0)
+            epoch_metrics['recall'] = recall_score(all_true_labels, all_predictions, average='weighted', zero_division=0)
+            epoch_metrics['precision'] = precision_score(all_true_labels, all_predictions, average='weighted', zero_division=0)
+        else:
+            epoch_metrics['f1'] = 0.0
+            epoch_metrics['recall'] = 0.0
+            epoch_metrics['precision'] = 0.0
 
         if ret_predict == False:
             return epoch_metrics
         else:
             return total_class_predictions
+
 
     def data_prepare_train_only(self, train_data, train_label, valid_data=None, mat_train=None, num_freq=None):
         # if use RGNN and NodeDAT, then valid_data must not be None
@@ -240,7 +275,7 @@ class Trainer(object):
         return train_loader, valid_loader
 
     def train_and_eval(self, train_data, train_label, valid_data, valid_label,
-                       num_freq=None, reload=True, nd_predict=True,train_log=False): 
+                       num_freq=None, reload=True, nd_predict=True,train_log=False):
         # print("train_and_eval !!!!")
         # print("log ",train_log)
         # print(type(train_log))
@@ -270,7 +305,7 @@ class Trainer(object):
         # for name, param in self.model.named_parameters():
         #     print(name)
         #     print(param.data.shape)
-            
+
         # print(self.optimizer)
         if self.optimizer == 'Adam':
             self.optimizer = torch.optim.Adam(
@@ -279,7 +314,7 @@ class Trainer(object):
             self.optimizer = torch.optim.SGD(
                 self.model.parameters(), lr=self.lr)
         # print(self.optimizer)
-        
+
         if self.model_name == 'Het':
             mat_train = get_het_adjacency_matrix(train_data)
             mat_val = get_het_adjacency_matrix(valid_data)
@@ -310,8 +345,12 @@ class Trainer(object):
             time_cost = time_end - time_start
 
             if train_log==True:
-                print('device', self.device, 'Epoch {:.0f} training_acc: {:.4f}  valid_acc: {:.4f}| train_loss: {:.4f}, valid_loss: {:.4f}, | time cost: {:.3f}'.format(
-                    train_metric['epoch'], train_metric['acc'], eval_metric['acc'], train_metric['loss'], eval_metric['loss'], time_cost))
+                print('device', self.device,
+                      'Epoch {:.0f} | Train Acc: {:.4f} F1: {:.4f} Recall: {:.4f} Precision: {:.4f} Loss: {:.4f} | Valid Acc: {:.4f} F1: {:.4f} Recall: {:.4f} Precision: {:.4f} Loss: {:.4f} | Time: {:.3f}s'.format(
+                          train_metric['epoch'],
+                          train_metric['acc'], train_metric.get('f1', -1), train_metric.get('recall', -1), train_metric.get('precision', -1), train_metric['loss'],
+                          eval_metric['acc'], eval_metric.get('f1', -1), eval_metric.get('recall', -1), eval_metric.get('precision', -1), eval_metric['loss'],
+                          time_cost))
 
             eval_acc_list.append(eval_metric['acc'])
             train_acc_list.append(train_metric['acc'])
@@ -331,12 +370,12 @@ class Trainer(object):
 
         self.eval_acc_list = eval_acc_list
         self.train_acc_list = train_acc_list
-        
+
 
     def train_only(self, train_data, train_label, valid_data=None, mat_train=None,
                    num_freq=None,train_log=False):  # ,small=False,step=0.00001):
         # print("in train_only num_fe",num_freq)
-        
+
         # self.num_epoch = 1
         if self.model_name == 'Het':
             self.num_freq = num_freq
@@ -363,7 +402,7 @@ class Trainer(object):
         elif self.optimizer == 'SGD':
             self.optimizer = torch.optim.SGD(
                 self.model.parameters(), lr=self.lr)
-        
+
         if self.model_name == 'Het':
             train_loader = self.data_prepare_train_only(
                 train_data, train_label, mat_train=mat_train, num_freq=num_freq)
@@ -407,13 +446,13 @@ class Trainer(object):
             data_time = data[:, :, self.num_freq:]
             mat_list = adj_mat
             self.model = self.model.eval()
-            total_class_predictions = []
+            total_class_predictions = [] # This was already here for predict
             with torch.no_grad():
                 if data.shape[0] < 128:
                     predictions = self.model(data_time, data_freq, mat_list)
                     class_predict = predictions.argmax(axis=-1)
                     class_predict = class_predict.cpu().detach().numpy()
-                    total_class_predictions += [item for item in class_predict]
+                    total_class_predictions.extend(class_predict.tolist()) # Ensure extend is used
                 else:
                     for i in range(0, data.shape[0], 128):
                         if i+128 < data.shape[0]:
@@ -428,11 +467,10 @@ class Trainer(object):
                             cur_data_time, cur_data_freq, cur_mat_list)
                         class_predict = predictions.argmax(axis=-1)
                         class_predict = class_predict.cpu().detach().numpy()
-                        total_class_predictions += [
-                            item for item in class_predict]
+                        total_class_predictions.extend(class_predict.tolist()) # Ensure extend is used
         else:
             self.model = self.model.eval()
-            total_class_predictions = []
+            total_class_predictions = [] # This was already here for predict
 
             # predictions (before softmax)
             with torch.no_grad():
@@ -440,7 +478,7 @@ class Trainer(object):
                     predictions = self.model(data)
                     class_predict = predictions.argmax(axis=-1)
                     class_predict = class_predict.cpu().detach().numpy()
-                    total_class_predictions += [item for item in class_predict]
+                    total_class_predictions.extend(class_predict.tolist()) # Ensure extend is used
                 else:
                     for i in range(0, data.shape[0], 128):
                         if i+128 < data.shape[0]:
@@ -450,8 +488,7 @@ class Trainer(object):
                         predictions = self.model(cur_data)
                         class_predict = predictions.argmax(axis=-1)
                         class_predict = class_predict.cpu().detach().numpy()
-                        total_class_predictions += [
-                            item for item in class_predict]
+                        total_class_predictions.extend(class_predict.tolist()) # Ensure extend is used
         return np.array(total_class_predictions)
 
     def save(self, path, name='best_model.dic.pkl'):
